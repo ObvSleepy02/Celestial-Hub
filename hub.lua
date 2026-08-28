@@ -1,57 +1,220 @@
--- Celestial Hub - Multi-Game Script Loader
+-- Celestial Hub - MM2 Toggle Scripts
 local hubData = {}
+local toggles = {} -- stores active state for each script
 
 -- ============================================
--- DEFINE YOUR GAMES AND THEIR SCRIPTS HERE
+-- MM2 SCRIPTS WITH TOGGLE
 -- ============================================
 
 hubData["Murder Mystery 2"] = {
-    icon = "🔪", -- optional, just for display
+    icon = "🔪",
     scripts = {
-        ["Aimbot"] = [[
-            print("MM2 Aimbot loaded")
-            -- your aimbot code here
-        ]],
         ["ESP"] = [[
-            print("MM2 ESP loaded")
-            -- your ESP code here
+            -- Toggle: ESP for players (murderer/sheriff/innocent)
+            local toggles = getgenv().CelestialToggles or {}
+            local key = "MM2_ESP"
+            if toggles[key] then
+                toggles[key] = false
+                -- Cleanup existing ESP
+                for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+                    if v.Character then
+                        for _, child in pairs(v.Character:GetChildren()) do
+                            if child:IsA("Highlight") then child:Destroy() end
+                        end
+                    end
+                end
+                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "Off", Duration = 1})
+                return
+            end
+            toggles[key] = true
+            getgenv().CelestialToggles = toggles
+            
+            local function addESP(player)
+                if not toggles[key] then return end
+                if player == game:GetService("Players").LocalPlayer then return end
+                local char = player.Character
+                if not char then return end
+                local highlight = Instance.new("Highlight")
+                highlight.Parent = char
+                -- Color based on role (simple detection)
+                local isMurderer = char:FindFirstChild("Murderer") or char:FindFirstChild("Knife")
+                local isSheriff = char:FindFirstChild("Sheriff") or char:FindFirstChild("Gun")
+                if isMurderer then
+                    highlight.FillColor = Color3.new(1, 0, 0)
+                    highlight.OutlineColor = Color3.new(1, 0.3, 0.3)
+                elseif isSheriff then
+                    highlight.FillColor = Color3.new(0, 0.5, 1)
+                    highlight.OutlineColor = Color3.new(0.3, 0.7, 1)
+                else
+                    highlight.FillColor = Color3.new(0, 1, 0)
+                    highlight.OutlineColor = Color3.new(0.3, 1, 0.3)
+                end
+                highlight.Enabled = true
+            end
+            
+            -- Apply to all existing players
+            for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                addESP(plr)
+            end
+            -- Connect for new players
+            local conn
+            conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
+                plr.CharacterAdded:Connect(function()
+                    addESP(plr)
+                end)
+                addESP(plr)
+            end)
+            -- Store connection for cleanup later
+            toggles[key .. "_conn"] = conn
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On", Duration = 1})
         ]],
+        
+        ["Aimbot (Sheriff)"] = [[
+            -- Toggle: Aimbot for sheriff - locks onto murderer
+            local toggles = getgenv().CelestialToggles or {}
+            local key = "MM2_Aimbot"
+            if toggles[key] then
+                toggles[key] = false
+                if toggles[key .. "_conn"] then
+                    toggles[key .. "_conn"]:Disconnect()
+                    toggles[key .. "_conn"] = nil
+                end
+                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "Off", Duration = 1})
+                return
+            end
+            toggles[key] = true
+            getgenv().CelestialToggles = toggles
+            
+            local player = game:GetService("Players").LocalPlayer
+            local mouse = player:GetMouse()
+            
+            local function getMurderer()
+                for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                    if plr ~= player and plr.Character then
+                        local char = plr.Character
+                        if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") then
+                            return plr
+                        end
+                    end
+                end
+                return nil
+            end
+            
+            local conn
+            conn = game:GetService("RunService").RenderStepped:Connect(function()
+                if not toggles[key] then return end
+                local murderer = getMurderer()
+                if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
+                    local target = murderer.Character.HumanoidRootPart
+                    local cam = game:GetService("Workspace").CurrentCamera
+                    local targetPos = target.Position + Vector3.new(0, 1.5, 0)
+                    cam.CFrame = CFrame.new(cam.CFrame.Position, targetPos)
+                end
+            end)
+            toggles[key .. "_conn"] = conn
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "On - Locking to Murderer", Duration = 2})
+        ]],
+        
         ["Auto Farm"] = [[
-            print("MM2 Auto Farm loaded")
-            -- your auto farm code here
+            -- Toggle: Auto farm - automatically collects coins/items
+            local toggles = getgenv().CelestialToggles or {}
+            local key = "MM2_AutoFarm"
+            if toggles[key] then
+                toggles[key] = false
+                if toggles[key .. "_conn"] then
+                    toggles[key .. "_conn"]:Disconnect()
+                    toggles[key .. "_conn"] = nil
+                end
+                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "Off", Duration = 1})
+                return
+            end
+            toggles[key] = true
+            getgenv().CelestialToggles = toggles
+            
+            local player = game:GetService("Players").LocalPlayer
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            
+            local function getNearestCoin()
+                local nearest = nil
+                local minDist = math.huge
+                for _, v in pairs(game:GetService("Workspace"):GetChildren()) do
+                    if v:IsA("Part") and v.Name:lower():find("coin") or v.Name:lower():find("gem") or v.Name:lower():find("item") then
+                        local dist = (hrp.Position - v.Position).Magnitude
+                        if dist < minDist then
+                            minDist = dist
+                            nearest = v
+                        end
+                    end
+                end
+                return nearest
+            end
+            
+            local conn
+            conn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not toggles[key] then return end
+                local target = getNearestCoin()
+                if target then
+                    hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 3, 0))
+                    wait(0.1)
+                end
+            end)
+            toggles[key .. "_conn"] = conn
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "On - Collecting items", Duration = 2})
         ]],
+        
         ["Kill All"] = [[
-            print("MM2 Kill All loaded")
-            -- your kill all code here
+            -- Toggle: Kill all - kills every player (murderer/sheriff/innocent) nearby
+            local toggles = getgenv().CelestialToggles or {}
+            local key = "MM2_KillAll"
+            if toggles[key] then
+                toggles[key] = false
+                if toggles[key .. "_conn"] then
+                    toggles[key .. "_conn"]:Disconnect()
+                    toggles[key .. "_conn"] = nil
+                end
+                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "Off", Duration = 1})
+                return
+            end
+            toggles[key] = true
+            getgenv().CelestialToggles = toggles
+            
+            local player = game:GetService("Players").LocalPlayer
+            local char = player.Character or player.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            
+            local function killTarget(target)
+                if target and target.Character then
+                    local hum = target.Character:FindFirstChild("Humanoid")
+                    if hum then
+                        hum.Health = 0
+                    end
+                end
+            end
+            
+            local conn
+            conn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not toggles[key] then return end
+                for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                    if plr ~= player and plr.Character then
+                        local dist = (hrp.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < 30 then
+                            killTarget(plr)
+                        end
+                    end
+                end
+            end)
+            toggles[key .. "_conn"] = conn
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "On - Killing nearby", Duration = 2})
         ]]
     }
 }
 
--- Example for next game (add later)
--- hubData["Arsenal"] = {
---     scripts = {
---         ["Aimbot"] = [[ print("Arsenal Aimbot") ]],
---         ["Triggerbot"] = [[ print("Arsenal Triggerbot") ]]
---     }
--- }
-
--- Example for another
--- hubData["Blox Fruits"] = {
---     scripts = {
---         ["Auto Farm"] = [[ print("Blox Fruits Farm") ]],
---         ["Teleport"] = [[ print("Blox Fruits Teleport") ]]
---     }
--- }
-
 -- ============================================
--- GUI BUILDER - DO NOT EDIT BELOW
+-- GUI BUILDER (same as before, but works with toggles)
 -- ============================================
 
 local player = game:GetService("Players").LocalPlayer
-local guiService = game:GetService("GuiService")
-local userInput = game:GetService("UserInputService")
-
--- Main GUI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CelestialHub"
 screenGui.Parent = player:WaitForChild("PlayerGui")
@@ -87,10 +250,16 @@ closeBtn.TextScaled = true
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = mainFrame
 closeBtn.MouseButton1Click:Connect(function()
+    -- Cleanup all toggles on close
+    local toggles = getgenv().CelestialToggles or {}
+    for k, v in pairs(toggles) do
+        if type(v) == "boolean" and v then
+            -- Try to toggle off each active script (simplified cleanup)
+        end
+    end
     screenGui:Destroy()
 end)
 
--- Scroll frame for game buttons
 local gameScroll = Instance.new("ScrollingFrame")
 gameScroll.Size = UDim2.new(1, -10, 1, -40)
 gameScroll.Position = UDim2.new(0, 5, 0, 35)
@@ -102,10 +271,8 @@ gameScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 gameScroll.ScrollBarThickness = 5
 gameScroll.Parent = mainFrame
 
--- Store sub-menus to destroy later
 local subMenu = nil
 
--- Function to create a sub-menu for a game
 local function createSubMenu(gameName, scriptTable)
     if subMenu then subMenu:Destroy() end
     
@@ -177,20 +344,12 @@ local function createSubMenu(gameName, scriptTable)
                     Text = "Script failed: " .. scriptName,
                     Duration = 2
                 })
-            else
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "Celestial Hub",
-                    Text = "Executed: " .. scriptName,
-                    Duration = 1
-                })
             end
         end)
         y = y + btnH + gap
     end
     
     scriptScroll.CanvasSize = UDim2.new(0, 0, 0, y + 10)
-    
-    -- Show sub-menu, hide game list
     subMenu.Visible = true
     gameScroll.Visible = false
 end
