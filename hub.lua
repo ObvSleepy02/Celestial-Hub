@@ -1,174 +1,117 @@
--- Celestial Hub - MM2 Toggle Scripts
+-- Celestial Hub - MM2 FULLY WORKING
 local hubData = {}
-local toggles = {} -- stores active state for each script
-
--- ============================================
--- MM2 SCRIPTS WITH TOGGLE
--- ============================================
+local toggles = {}
 
 hubData["Murder Mystery 2"] = {
     icon = "🔪",
     scripts = {
         ["ESP"] = [[
-    local toggles = getgenv().CelestialToggles or {}
-    local key = "MM2_ESP"
-    if toggles[key] then
-        toggles[key] = false
-        if toggles[key .. "_conn"] then
-            toggles[key .. "_conn"]:Disconnect()
-            toggles[key .. "_conn"] = nil
-        end
-        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-            if plr.Character then
-                for _, child in pairs(plr.Character:GetChildren()) do
+            local player = game:GetService("Players").LocalPlayer
+            local toggles = getgenv().CelestialToggles or {}
+            local key = "MM2_ESP"
+            
+            if toggles[key] then
+                toggles[key] = false
+                if toggles[key .. "_conn"] then
+                    toggles[key .. "_conn"]:Disconnect()
+                    toggles[key .. "_conn"] = nil
+                end
+                for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                    if plr.Character then
+                        for _, child in pairs(plr.Character:GetChildren()) do
+                            if child:IsA("Highlight") then child:Destroy() end
+                        end
+                    end
+                end
+                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "Off", Duration = 1})
+                return
+            end
+            
+            toggles[key] = true
+            getgenv().CelestialToggles = toggles
+
+            local function getRole(plr)
+                if not plr.Character then return "Innocent" end
+                local char = plr.Character
+                
+                -- Check for murderer items
+                if char:FindFirstChild("Knife") or char:FindFirstChild("Sword") or 
+                   char:FindFirstChild("Dagger") or char:FindFirstChild("Murderer") then
+                    return "Murderer"
+                end
+                
+                -- Check for sheriff items
+                if char:FindFirstChild("Gun") or char:FindFirstChild("Revolver") or 
+                   char:FindFirstChild("Pistol") or char:FindFirstChild("Sheriff") then
+                    return "Sheriff"
+                end
+                
+                -- Check backpack
+                local backpack = plr:FindFirstChild("Backpack")
+                if backpack then
+                    for _, item in pairs(backpack:GetChildren()) do
+                        if item:IsA("Tool") then
+                            local name = item.Name:lower()
+                            if name:find("knife") or name:find("sword") or name:find("dagger") then
+                                return "Murderer"
+                            elseif name:find("gun") or name:find("revolver") or name:find("pistol") then
+                                return "Sheriff"
+                            end
+                        end
+                    end
+                end
+                
+                return "Innocent"
+            end
+
+            local function addESP(plr)
+                if not toggles[key] then return end
+                if plr == player then return end
+                if not plr.Character then return end
+                
+                local char = plr.Character
+                for _, child in pairs(char:GetChildren()) do
                     if child:IsA("Highlight") then child:Destroy() end
                 end
-            end
-        end
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "Off", Duration = 1})
-        return
-    end
-    toggles[key] = true
-    getgenv().CelestialToggles = toggles
-
-    local player = game:GetService("Players").LocalPlayer
-
-    local function getRole(plr)
-        if plr == player then return "Local" end
-        if not plr.Character then return "Innocent" end
-        
-        local char = plr.Character
-        
-        -- Method 1: Check for specific parts in character
-        local roleParts = {
-            Murderer = {"Murderer", "Knife", "Sword", "Dagger"},
-            Sheriff = {"Sheriff", "Gun", "Revolver", "Pistol"}
-        }
-        
-        for role, names in pairs(roleParts) do
-            for _, name in pairs(names) do
-                if char:FindFirstChild(name) then
-                    return role
+                
+                local h = Instance.new("Highlight")
+                h.Parent = char
+                h.FillTransparency = 0.3
+                h.OutlineTransparency = 0.2
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                
+                local role = getRole(plr)
+                if role == "Murderer" then
+                    h.FillColor = Color3.new(1, 0, 0)
+                    h.OutlineColor = Color3.new(1, 0.2, 0.2)
+                elseif role == "Sheriff" then
+                    h.FillColor = Color3.new(0, 0.4, 1)
+                    h.OutlineColor = Color3.new(0.2, 0.6, 1)
+                else
+                    h.FillColor = Color3.new(0, 1, 0)
+                    h.OutlineColor = Color3.new(0.2, 1, 0.2)
                 end
+                h.Enabled = true
             end
-        end
-        
-        -- Method 2: Check tools in hand
-        local hum = char:FindFirstChild("Humanoid")
-        if hum then
-            local tool = hum:FindFirstChild("Tool") or hum:FindFirstChild("ActiveTool")
-            if tool then
-                local toolName = tool.Name:lower()
-                if toolName:find("knife") or toolName:find("sword") or toolName:find("dagger") then
-                    return "Murderer"
-                elseif toolName:find("gun") or toolName:find("revolver") or toolName:find("pistol") or toolName:find("shoot") then
-                    return "Sheriff"
-                end
-            end
-        end
-        
-        -- Method 3: Check if player has the murderer or sheriff game badge
-        local badges = plr:GetBadges()
-        for _, badge in pairs(badges) do
-            local badgeName = badge.Name:lower()
-            if badgeName:find("murder") or badgeName:find("killer") then
-                return "Murderer"
-            elseif badgeName:find("sheriff") or badgeName:find("detective") then
-                return "Sheriff"
-            end
-        end
-        
-        -- Method 4: Check backpack for weapons
-        local backpack = plr:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in pairs(backpack:GetChildren()) do
-                local itemName = item.Name:lower()
-                if itemName:find("knife") or itemName:find("sword") or itemName:find("dagger") then
-                    return "Murderer"
-                elseif itemName:find("gun") or itemName:find("revolver") or itemName:find("pistol") then
-                    return "Sheriff"
-                end
-            end
-        end
-        
-        return "Innocent"
-    end
 
-    local function addESP(plr)
-        if not toggles[key] then return end
-        if plr == player then return end
-        local char = plr.Character
-        if not char then return end
-        
-        -- Remove old highlights
-        for _, child in pairs(char:GetChildren()) do
-            if child:IsA("Highlight") then child:Destroy() end
-        end
-        
-        local highlight = Instance.new("Highlight")
-        highlight.Parent = char
-        local role = getRole(plr)
-        
-        if role == "Murderer" then
-            highlight.FillColor = Color3.new(1, 0, 0)
-            highlight.OutlineColor = Color3.new(1, 0.2, 0.2)
-            highlight.FillTransparency = 0.4
-        elseif role == "Sheriff" then
-            highlight.FillColor = Color3.new(0, 0.4, 1)
-            highlight.OutlineColor = Color3.new(0.2, 0.6, 1)
-            highlight.FillTransparency = 0.4
-        else
-            highlight.FillColor = Color3.new(0, 1, 0)
-            highlight.OutlineColor = Color3.new(0.2, 1, 0.2)
-            highlight.FillTransparency = 0.3
-        end
-        highlight.Enabled = true
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    end
-
-    -- Apply to all current players
-    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-        addESP(plr)
-    end
-
-    -- New players
-    local conn
-    conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
-        plr.CharacterAdded:Connect(function()
-            addESP(plr)
-        end)
-        addESP(plr)
-    end)
-    
-    -- Also refresh when character changes (role can change mid-round)
-    local refreshConn
-    refreshConn = game:GetService("RunService").Heartbeat:Connect(function()
-        if not toggles[key] then 
-            refreshConn:Disconnect()
-            return 
-        end
-        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hasHighlight = false
-                for _, child in pairs(plr.Character:GetChildren()) do
-                    if child:IsA("Highlight") then hasHighlight = true break end
-                end
-                if not hasHighlight then
-                    addESP(plr)
-                end
+            for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                addESP(plr)
             end
-        end
-    end)
-    
-    toggles[key .. "_conn"] = conn
-    toggles[key .. "_refresh"] = refreshConn
-    
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On - Red=Murderer Blue=Sheriff Green=Innocent", Duration = 3})
-]]
+
+            local conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
+                plr.CharacterAdded:Connect(function() addESP(plr) end)
+                addESP(plr)
+            end)
+            toggles[key .. "_conn"] = conn
+            
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On - Red=Murderer Blue=Sheriff Green=Innocent", Duration = 3})
+        ]],
 
         ["Aimbot (Sheriff)"] = [[
+            local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_Aimbot"
+            
             if toggles[key] then
                 toggles[key] = false
                 if toggles[key .. "_conn"] then
@@ -178,18 +121,19 @@ hubData["Murder Mystery 2"] = {
                 game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "Off", Duration = 1})
                 return
             end
+            
             toggles[key] = true
             getgenv().CelestialToggles = toggles
 
-            local player = game:GetService("Players").LocalPlayer
             local camera = game:GetService("Workspace").CurrentCamera
 
             local function getMurderer()
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    if plr ~= player and plr.Character then
                         local char = plr.Character
-                        if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") or char:FindFirstChild("Sword") then
-                            return plr
+                        if char:FindFirstChild("Knife") or char:FindFirstChild("Sword") or 
+                           char:FindFirstChild("Dagger") or char:FindFirstChild("Murderer") then
+                            return char:FindFirstChild("HumanoidRootPart")
                         end
                     end
                 end
@@ -199,75 +143,56 @@ hubData["Murder Mystery 2"] = {
             local conn
             conn = game:GetService("RunService").RenderStepped:Connect(function()
                 if not toggles[key] then return end
-                local murderer = getMurderer()
-                if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
-                    local target = murderer.Character.HumanoidRootPart
-                    local targetPos = target.Position + Vector3.new(0, 1.5, 0)
-                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetPos)
+                local target = getMurderer()
+                if target then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position + Vector3.new(0, 1.5, 0))
                 end
             end)
             toggles[key .. "_conn"] = conn
+            
             game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "On - Locked to Murderer", Duration = 2})
         ]],
 
-        ["Auto Farm (Fly+Noclip)"] = [[
+        ["Auto Farm"] = [[
+            local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_AutoFarm"
+            
             if toggles[key] then
                 toggles[key] = false
                 if toggles[key .. "_conn"] then
                     toggles[key .. "_conn"]:Disconnect()
                     toggles[key .. "_conn"] = nil
                 end
-                -- Remove fly/noclip
-                local char = game:GetService("Players").LocalPlayer.Character
+                -- Cleanup
+                local char = player.Character
                 if char then
                     local bv = char:FindFirstChild("BodyVelocity")
                     if bv then bv:Destroy() end
-                    local hum = char:FindFirstChild("Humanoid")
-                    if hum then
-                        hum.PlatformStand = false
-                        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
-                        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-                        hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
-                        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
-                    end
                     local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.CanCollide = true
-                    end
+                    if hrp then hrp.CanCollide = true end
                 end
                 game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "Off", Duration = 1})
                 return
             end
+            
             toggles[key] = true
             getgenv().CelestialToggles = toggles
 
-            local player = game:GetService("Players").LocalPlayer
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
-            local hum = char:WaitForChild("Humanoid")
-
-            -- Enable noclip
             hrp.CanCollide = false
-            -- Enable fly
+            
             local bv = Instance.new("BodyVelocity")
             bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
             bv.Velocity = Vector3.new(0, 0, 0)
             bv.Parent = hrp
 
-            -- Disable gravity effects on humanoid
-            hum.PlatformStand = true
-            hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
-            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
-
             local function getNearestCoin()
                 local nearest = nil
                 local minDist = math.huge
                 for _, obj in pairs(game:GetService("Workspace"):GetDescendants()) do
-                    if obj:IsA("Part") and (obj.Name:lower():find("coin") or obj.Name:lower():find("gem") or obj.Name:lower():find("diamond") or obj:FindFirstChild("ClickDetector")) then
+                    if obj:IsA("Part") and (obj.Name:lower():find("coin") or obj.Name:lower():find("gem") or obj.Name:lower():find("diamond")) then
                         local dist = (hrp.Position - obj.Position).Magnitude
                         if dist < minDist then
                             minDist = dist
@@ -283,25 +208,26 @@ hubData["Murder Mystery 2"] = {
                 if not toggles[key] then return end
                 local target = getNearestCoin()
                 if target then
-                    -- Fly towards target
                     local direction = (target.Position - hrp.Position).Unit
                     bv.Velocity = direction * 60
-                    -- Slight hover height
+                    -- Hover above coin
                     if (target.Position - hrp.Position).Y < 2 then
                         bv.Velocity = bv.Velocity + Vector3.new(0, 10, 0)
                     end
-                    wait(0.05)
                 else
                     bv.Velocity = Vector3.new(0, 0, 0)
                 end
             end)
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "On - Flying + Noclip to coins", Duration = 2})
+            
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "On - Flying to coins", Duration = 2})
         ]],
 
-        ["Kill All (Teleport to you)"] = [[
+        ["Kill All"] = [[
+            local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_KillAll"
+            
             if toggles[key] then
                 toggles[key] = false
                 if toggles[key .. "_conn"] then
@@ -311,10 +237,10 @@ hubData["Murder Mystery 2"] = {
                 game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "Off", Duration = 1})
                 return
             end
+            
             toggles[key] = true
             getgenv().CelestialToggles = toggles
 
-            local player = game:GetService("Players").LocalPlayer
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
 
@@ -324,25 +250,23 @@ hubData["Murder Mystery 2"] = {
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
                     if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                         local targetHrp = plr.Character.HumanoidRootPart
-                        -- Teleport player to you
-                        targetHrp.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 0))
-                        -- Stun them so they can't run
+                        targetHrp.CFrame = hrp.CFrame + Vector3.new(0, 3, 0)
                         local hum = plr.Character:FindFirstChild("Humanoid")
                         if hum then
-                            hum.PlatformStand = true
-                            wait(0.1)
-                            hum.PlatformStand = false
+                            hum.Health = 0
                         end
                     end
                 end
             end)
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "On - Teleporting all to you", Duration = 2})
+            
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "On - Teleporting + Killing", Duration = 2})
         ]]
     }
 }
+
 -- ============================================
--- GUI BUILDER (same as before, but works with toggles)
+-- GUI BUILDER (same as before)
 -- ============================================
 
 local player = game:GetService("Players").LocalPlayer
@@ -380,16 +304,7 @@ closeBtn.TextColor3 = Color3.new(1, 1, 1)
 closeBtn.TextScaled = true
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Parent = mainFrame
-closeBtn.MouseButton1Click:Connect(function()
-    -- Cleanup all toggles on close
-    local toggles = getgenv().CelestialToggles or {}
-    for k, v in pairs(toggles) do
-        if type(v) == "boolean" and v then
-            -- Try to toggle off each active script (simplified cleanup)
-        end
-    end
-    screenGui:Destroy()
-end)
+closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
 local gameScroll = Instance.new("ScrollingFrame")
 gameScroll.Size = UDim2.new(1, -10, 1, -40)
@@ -469,11 +384,11 @@ local function createSubMenu(gameName, scriptTable)
         btn.MouseButton1Click:Connect(function()
             local success, err = pcall(loadstring(code))
             if not success then
-                warn("Script error [" .. scriptName .. "]: " .. tostring(err))
+                warn("Error: " .. tostring(err))
                 game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "Error",
-                    Text = "Script failed: " .. scriptName,
-                    Duration = 2
+                    Title = "ERROR",
+                    Text = tostring(err):sub(1, 50),
+                    Duration = 3
                 })
             end
         end)
@@ -485,7 +400,6 @@ local function createSubMenu(gameName, scriptTable)
     gameScroll.Visible = false
 end
 
--- Build game buttons
 local y = 0
 local btnH = 40
 local gap = 6
