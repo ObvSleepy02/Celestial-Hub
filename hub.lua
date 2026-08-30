@@ -1,11 +1,31 @@
--- Celestial Hub - MM2 FULLY WORKING
+-- Celestial Hub - DEBUG FORCED NOTIFICATION
+print("Celestial Hub script STARTED")
+
+-- FORCE a notification to prove the script runs
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Celestial Hub",
+        Text = "Script loaded! If you see this, execution works.",
+        Duration = 5
+    })
+end)
+
 local hubData = {}
 local toggles = {}
 
 hubData["Murder Mystery 2"] = {
     icon = "🔪",
     scripts = {
+        ["TEST - Click me"] = [[
+            print("TEST button clicked")
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "TEST",
+                Text = "Button works!",
+                Duration = 3
+            })
+        ]],
         ["ESP"] = [[
+            print("ESP toggled")
             local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_ESP"
@@ -98,6 +118,7 @@ hubData["Murder Mystery 2"] = {
         ]],
 
         ["Aimbot (Sheriff)"] = [[
+            print("Aimbot toggled")
             local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_Aimbot"
@@ -144,6 +165,7 @@ hubData["Murder Mystery 2"] = {
         ]],
 
         ["Auto Farm"] = [[
+            print("Auto Farm toggled")
             local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_AutoFarm"
@@ -154,7 +176,6 @@ hubData["Murder Mystery 2"] = {
                     toggles[key .. "_conn"]:Disconnect()
                     toggles[key .. "_conn"] = nil
                 end
-                -- CLEANUP: remove fly + restore noclip + fix movement
                 local char = player.Character
                 if char then
                     local bv = char:FindFirstChild("BodyVelocity")
@@ -186,16 +207,13 @@ hubData["Murder Mystery 2"] = {
             local hrp = char:WaitForChild("HumanoidRootPart")
             local hum = char:WaitForChild("Humanoid")
             
-            -- NOCLIP
             hrp.CanCollide = false
             
-            -- FLY
             local bv = Instance.new("BodyVelocity")
             bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
             bv.Velocity = Vector3.new(0, 0, 0)
             bv.Parent = hrp
             
-            -- Disable gravity effects so you don't fall
             hum.PlatformStand = true
             hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
             hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -236,6 +254,7 @@ hubData["Murder Mystery 2"] = {
         ]],
 
         ["Kill All"] = [[
+            print("Kill All toggled")
             local player = game:GetService("Players").LocalPlayer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_KillAll"
@@ -262,11 +281,8 @@ hubData["Murder Mystery 2"] = {
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
                     if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                         local targetHrp = plr.Character.HumanoidRootPart
-                        -- REAL TELEPORT - set CFrame to your position
                         targetHrp.CFrame = hrp.CFrame + Vector3.new(0, 3, 0)
-                        -- Also teleport their humanoid root part on server side by changing position
                         targetHrp.Position = hrp.Position + Vector3.new(0, 3, 0)
-                        -- Force velocity reset so they don't slide away
                         targetHrp.Velocity = Vector3.new(0, 0, 0)
                     end
                 end
@@ -282,10 +298,14 @@ hubData["Murder Mystery 2"] = {
 -- GUI BUILDER
 -- ============================================
 
+print("Building GUI...")
+
 local player = game:GetService("Players").LocalPlayer
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CelestialHub"
 screenGui.Parent = player:WaitForChild("PlayerGui")
+
+print("ScreenGui created, parent: " .. tostring(screenGui.Parent))
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 300, 0, 400)
@@ -395,6 +415,7 @@ local function createSubMenu(gameName, scriptTable)
         btn.Font = Enum.Font.GothamMedium
         btn.Parent = scriptScroll
         btn.MouseButton1Click:Connect(function()
+            print("Button clicked: " .. scriptName)
             local success, err = pcall(loadstring(code))
             if not success then
                 warn("Error: " .. tostring(err))
@@ -403,6 +424,8 @@ local function createSubMenu(gameName, scriptTable)
                     Text = tostring(err):sub(1, 50),
                     Duration = 3
                 })
+            else
+                print("Script executed successfully: " .. scriptName)
             end
         end)
         y = y + btnH + gap
@@ -428,9 +451,17 @@ for gameName, data in pairs(hubData) do
     btn.Font = Enum.Font.GothamBold
     btn.Parent = gameScroll
     btn.MouseButton1Click:Connect(function()
+        print("Game selected: " .. gameName)
         createSubMenu(gameName, data.scripts)
     end)
     y = y + btnH + gap
 end
 
 gameScroll.CanvasSize = UDim2.new(0, 0, 0, y + 10)
+
+print("GUI build complete. Hub should be visible.")
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Celestial Hub",
+    Text = "GUI loaded! Click MM2 -> TEST first.",
+    Duration = 4
+})
