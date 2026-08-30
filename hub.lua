@@ -10,76 +10,161 @@ hubData["Murder Mystery 2"] = {
     icon = "🔪",
     scripts = {
         ["ESP"] = [[
-            local toggles = getgenv().CelestialToggles or {}
-            local key = "MM2_ESP"
-            if toggles[key] then
-                toggles[key] = false
-                if toggles[key .. "_conn"] then
-                    toggles[key .. "_conn"]:Disconnect()
-                    toggles[key .. "_conn"] = nil
-                end
-                for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    if plr.Character then
-                        for _, child in pairs(plr.Character:GetChildren()) do
-                            if child:IsA("Highlight") then child:Destroy() end
-                        end
-                    end
-                end
-                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "Off", Duration = 1})
-                return
-            end
-            toggles[key] = true
-            getgenv().CelestialToggles = toggles
-
-            local function getRole(plr)
-                if not plr.Character then return "Innocent" end
-                local char = plr.Character
-                if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") or char:FindFirstChild("Sword") then
-                    return "Murderer"
-                elseif char:FindFirstChild("Sheriff") or char:FindFirstChild("Gun") or char:FindFirstChild("Revolver") then
-                    return "Sheriff"
-                else
-                    return "Innocent"
-                end
-            end
-
-            local function addESP(plr)
-                if not toggles[key] then return end
-                if plr == game:GetService("Players").LocalPlayer then return end
-                local char = plr.Character
-                if not char then return end
-                for _, child in pairs(char:GetChildren()) do
+    local toggles = getgenv().CelestialToggles or {}
+    local key = "MM2_ESP"
+    if toggles[key] then
+        toggles[key] = false
+        if toggles[key .. "_conn"] then
+            toggles[key .. "_conn"]:Disconnect()
+            toggles[key .. "_conn"] = nil
+        end
+        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+            if plr.Character then
+                for _, child in pairs(plr.Character:GetChildren()) do
                     if child:IsA("Highlight") then child:Destroy() end
                 end
-                local highlight = Instance.new("Highlight")
-                highlight.Parent = char
-                local role = getRole(plr)
-                if role == "Murderer" then
-                    highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.OutlineColor = Color3.new(1, 0.2, 0.2)
-                elseif role == "Sheriff" then
-                    highlight.FillColor = Color3.new(0, 0.4, 1)
-                    highlight.OutlineColor = Color3.new(0.2, 0.6, 1)
-                else
-                    highlight.FillColor = Color3.new(0, 1, 0)
-                    highlight.OutlineColor = Color3.new(0.2, 1, 0.2)
-                end
-                highlight.Enabled = true
             end
+        end
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "Off", Duration = 1})
+        return
+    end
+    toggles[key] = true
+    getgenv().CelestialToggles = toggles
 
-            for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                addESP(plr)
+    local player = game:GetService("Players").LocalPlayer
+
+    local function getRole(plr)
+        if plr == player then return "Local" end
+        if not plr.Character then return "Innocent" end
+        
+        local char = plr.Character
+        
+        -- Method 1: Check for specific parts in character
+        local roleParts = {
+            Murderer = {"Murderer", "Knife", "Sword", "Dagger"},
+            Sheriff = {"Sheriff", "Gun", "Revolver", "Pistol"}
+        }
+        
+        for role, names in pairs(roleParts) do
+            for _, name in pairs(names) do
+                if char:FindFirstChild(name) then
+                    return role
+                end
             end
-            local conn
-            conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
-                plr.CharacterAdded:Connect(function()
+        end
+        
+        -- Method 2: Check tools in hand
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            local tool = hum:FindFirstChild("Tool") or hum:FindFirstChild("ActiveTool")
+            if tool then
+                local toolName = tool.Name:lower()
+                if toolName:find("knife") or toolName:find("sword") or toolName:find("dagger") then
+                    return "Murderer"
+                elseif toolName:find("gun") or toolName:find("revolver") or toolName:find("pistol") or toolName:find("shoot") then
+                    return "Sheriff"
+                end
+            end
+        end
+        
+        -- Method 3: Check if player has the murderer or sheriff game badge
+        local badges = plr:GetBadges()
+        for _, badge in pairs(badges) do
+            local badgeName = badge.Name:lower()
+            if badgeName:find("murder") or badgeName:find("killer") then
+                return "Murderer"
+            elseif badgeName:find("sheriff") or badgeName:find("detective") then
+                return "Sheriff"
+            end
+        end
+        
+        -- Method 4: Check backpack for weapons
+        local backpack = plr:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                local itemName = item.Name:lower()
+                if itemName:find("knife") or itemName:find("sword") or itemName:find("dagger") then
+                    return "Murderer"
+                elseif itemName:find("gun") or itemName:find("revolver") or itemName:find("pistol") then
+                    return "Sheriff"
+                end
+            end
+        end
+        
+        return "Innocent"
+    end
+
+    local function addESP(plr)
+        if not toggles[key] then return end
+        if plr == player then return end
+        local char = plr.Character
+        if not char then return end
+        
+        -- Remove old highlights
+        for _, child in pairs(char:GetChildren()) do
+            if child:IsA("Highlight") then child:Destroy() end
+        end
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = char
+        local role = getRole(plr)
+        
+        if role == "Murderer" then
+            highlight.FillColor = Color3.new(1, 0, 0)
+            highlight.OutlineColor = Color3.new(1, 0.2, 0.2)
+            highlight.FillTransparency = 0.4
+        elseif role == "Sheriff" then
+            highlight.FillColor = Color3.new(0, 0.4, 1)
+            highlight.OutlineColor = Color3.new(0.2, 0.6, 1)
+            highlight.FillTransparency = 0.4
+        else
+            highlight.FillColor = Color3.new(0, 1, 0)
+            highlight.OutlineColor = Color3.new(0.2, 1, 0.2)
+            highlight.FillTransparency = 0.3
+        end
+        highlight.Enabled = true
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    end
+
+    -- Apply to all current players
+    for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+        addESP(plr)
+    end
+
+    -- New players
+    local conn
+    conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
+        plr.CharacterAdded:Connect(function()
+            addESP(plr)
+        end)
+        addESP(plr)
+    end)
+    
+    -- Also refresh when character changes (role can change mid-round)
+    local refreshConn
+    refreshConn = game:GetService("RunService").Heartbeat:Connect(function()
+        if not toggles[key] then 
+            refreshConn:Disconnect()
+            return 
+        end
+        for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hasHighlight = false
+                for _, child in pairs(plr.Character:GetChildren()) do
+                    if child:IsA("Highlight") then hasHighlight = true break end
+                end
+                if not hasHighlight then
                     addESP(plr)
-                end)
-                addESP(plr)
-            end)
-            toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On - Red=Murderer Blue=Sheriff Green=Innocent", Duration = 3})
-        ]],
+                end
+            end
+        end
+    end)
+    
+    toggles[key .. "_conn"] = conn
+    toggles[key .. "_refresh"] = refreshConn
+    
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On - Red=Murderer Blue=Sheriff Green=Innocent", Duration = 3})
+]]
 
         ["Aimbot (Sheriff)"] = [[
             local toggles = getgenv().CelestialToggles or {}
