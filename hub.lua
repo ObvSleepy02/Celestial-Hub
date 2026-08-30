@@ -10,15 +10,17 @@ hubData["Murder Mystery 2"] = {
     icon = "🔪",
     scripts = {
         ["ESP"] = [[
-            -- Toggle: ESP for players (murderer/sheriff/innocent)
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_ESP"
             if toggles[key] then
                 toggles[key] = false
-                -- Cleanup existing ESP
-                for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-                    if v.Character then
-                        for _, child in pairs(v.Character:GetChildren()) do
+                if toggles[key .. "_conn"] then
+                    toggles[key .. "_conn"]:Disconnect()
+                    toggles[key .. "_conn"] = nil
+                end
+                for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
+                    if plr.Character then
+                        for _, child in pairs(plr.Character:GetChildren()) do
                             if child:IsA("Highlight") then child:Destroy() end
                         end
                     end
@@ -28,35 +30,46 @@ hubData["Murder Mystery 2"] = {
             end
             toggles[key] = true
             getgenv().CelestialToggles = toggles
-            
-            local function addESP(player)
+
+            local function getRole(plr)
+                if not plr.Character then return "Innocent" end
+                local char = plr.Character
+                if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") or char:FindFirstChild("Sword") then
+                    return "Murderer"
+                elseif char:FindFirstChild("Sheriff") or char:FindFirstChild("Gun") or char:FindFirstChild("Revolver") then
+                    return "Sheriff"
+                else
+                    return "Innocent"
+                end
+            end
+
+            local function addESP(plr)
                 if not toggles[key] then return end
-                if player == game:GetService("Players").LocalPlayer then return end
-                local char = player.Character
+                if plr == game:GetService("Players").LocalPlayer then return end
+                local char = plr.Character
                 if not char then return end
+                for _, child in pairs(char:GetChildren()) do
+                    if child:IsA("Highlight") then child:Destroy() end
+                end
                 local highlight = Instance.new("Highlight")
                 highlight.Parent = char
-                -- Color based on role (simple detection)
-                local isMurderer = char:FindFirstChild("Murderer") or char:FindFirstChild("Knife")
-                local isSheriff = char:FindFirstChild("Sheriff") or char:FindFirstChild("Gun")
-                if isMurderer then
+                local role = getRole(plr)
+                if role == "Murderer" then
                     highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.OutlineColor = Color3.new(1, 0.3, 0.3)
-                elseif isSheriff then
-                    highlight.FillColor = Color3.new(0, 0.5, 1)
-                    highlight.OutlineColor = Color3.new(0.3, 0.7, 1)
+                    highlight.OutlineColor = Color3.new(1, 0.2, 0.2)
+                elseif role == "Sheriff" then
+                    highlight.FillColor = Color3.new(0, 0.4, 1)
+                    highlight.OutlineColor = Color3.new(0.2, 0.6, 1)
                 else
                     highlight.FillColor = Color3.new(0, 1, 0)
-                    highlight.OutlineColor = Color3.new(0.3, 1, 0.3)
+                    highlight.OutlineColor = Color3.new(0.2, 1, 0.2)
                 end
                 highlight.Enabled = true
             end
-            
-            -- Apply to all existing players
+
             for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
                 addESP(plr)
             end
-            -- Connect for new players
             local conn
             conn = game:GetService("Players").PlayerAdded:Connect(function(plr)
                 plr.CharacterAdded:Connect(function()
@@ -64,13 +77,11 @@ hubData["Murder Mystery 2"] = {
                 end)
                 addESP(plr)
             end)
-            -- Store connection for cleanup later
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On", Duration = 1})
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "ESP", Text = "On - Red=Murderer Blue=Sheriff Green=Innocent", Duration = 3})
         ]],
-        
+
         ["Aimbot (Sheriff)"] = [[
-            -- Toggle: Aimbot for sheriff - locks onto murderer
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_Aimbot"
             if toggles[key] then
@@ -84,39 +95,37 @@ hubData["Murder Mystery 2"] = {
             end
             toggles[key] = true
             getgenv().CelestialToggles = toggles
-            
+
             local player = game:GetService("Players").LocalPlayer
-            local mouse = player:GetMouse()
-            
+            local camera = game:GetService("Workspace").CurrentCamera
+
             local function getMurderer()
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    if plr ~= player and plr.Character then
+                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                         local char = plr.Character
-                        if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") then
+                        if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") or char:FindFirstChild("Sword") then
                             return plr
                         end
                     end
                 end
                 return nil
             end
-            
+
             local conn
             conn = game:GetService("RunService").RenderStepped:Connect(function()
                 if not toggles[key] then return end
                 local murderer = getMurderer()
                 if murderer and murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
                     local target = murderer.Character.HumanoidRootPart
-                    local cam = game:GetService("Workspace").CurrentCamera
                     local targetPos = target.Position + Vector3.new(0, 1.5, 0)
-                    cam.CFrame = CFrame.new(cam.CFrame.Position, targetPos)
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetPos)
                 end
             end)
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "On - Locking to Murderer", Duration = 2})
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Aimbot", Text = "On - Locked to Murderer", Duration = 2})
         ]],
-        
-        ["Auto Farm"] = [[
-            -- Toggle: Auto farm - automatically collects coins/items
+
+        ["Auto Farm (Fly+Noclip)"] = [[
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_AutoFarm"
             if toggles[key] then
@@ -125,46 +134,87 @@ hubData["Murder Mystery 2"] = {
                     toggles[key .. "_conn"]:Disconnect()
                     toggles[key .. "_conn"] = nil
                 end
+                -- Remove fly/noclip
+                local char = game:GetService("Players").LocalPlayer.Character
+                if char then
+                    local bv = char:FindFirstChild("BodyVelocity")
+                    if bv then bv:Destroy() end
+                    local hum = char:FindFirstChild("Humanoid")
+                    if hum then
+                        hum.PlatformStand = false
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                    end
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.CanCollide = true
+                    end
+                end
                 game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "Off", Duration = 1})
                 return
             end
             toggles[key] = true
             getgenv().CelestialToggles = toggles
-            
+
             local player = game:GetService("Players").LocalPlayer
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
-            
+            local hum = char:WaitForChild("Humanoid")
+
+            -- Enable noclip
+            hrp.CanCollide = false
+            -- Enable fly
+            local bv = Instance.new("BodyVelocity")
+            bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.Parent = hrp
+
+            -- Disable gravity effects on humanoid
+            hum.PlatformStand = true
+            hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+
             local function getNearestCoin()
                 local nearest = nil
                 local minDist = math.huge
-                for _, v in pairs(game:GetService("Workspace"):GetChildren()) do
-                    if v:IsA("Part") and v.Name:lower():find("coin") or v.Name:lower():find("gem") or v.Name:lower():find("item") then
-                        local dist = (hrp.Position - v.Position).Magnitude
+                for _, obj in pairs(game:GetService("Workspace"):GetDescendants()) do
+                    if obj:IsA("Part") and (obj.Name:lower():find("coin") or obj.Name:lower():find("gem") or obj.Name:lower():find("diamond") or obj:FindFirstChild("ClickDetector")) then
+                        local dist = (hrp.Position - obj.Position).Magnitude
                         if dist < minDist then
                             minDist = dist
-                            nearest = v
+                            nearest = obj
                         end
                     end
                 end
                 return nearest
             end
-            
+
             local conn
             conn = game:GetService("RunService").Heartbeat:Connect(function()
                 if not toggles[key] then return end
                 local target = getNearestCoin()
                 if target then
-                    hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 3, 0))
-                    wait(0.1)
+                    -- Fly towards target
+                    local direction = (target.Position - hrp.Position).Unit
+                    bv.Velocity = direction * 60
+                    -- Slight hover height
+                    if (target.Position - hrp.Position).Y < 2 then
+                        bv.Velocity = bv.Velocity + Vector3.new(0, 10, 0)
+                    end
+                    wait(0.05)
+                else
+                    bv.Velocity = Vector3.new(0, 0, 0)
                 end
             end)
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "On - Collecting items", Duration = 2})
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Farm", Text = "On - Flying + Noclip to coins", Duration = 2})
         ]],
-        
-        ["Kill All"] = [[
-            -- Toggle: Kill all - kills every player (murderer/sheriff/innocent) nearby
+
+        ["Kill All (Teleport to you)"] = [[
             local toggles = getgenv().CelestialToggles or {}
             local key = "MM2_KillAll"
             if toggles[key] then
@@ -178,147 +228,34 @@ hubData["Murder Mystery 2"] = {
             end
             toggles[key] = true
             getgenv().CelestialToggles = toggles
-            
+
             local player = game:GetService("Players").LocalPlayer
             local char = player.Character or player.CharacterAdded:Wait()
             local hrp = char:WaitForChild("HumanoidRootPart")
-            
-            local function killTarget(target)
-                if target and target.Character then
-                    local hum = target.Character:FindFirstChild("Humanoid")
-                    if hum then
-                        hum.Health = 0
-                    end
-                end
-            end
-            
+
             local conn
             conn = game:GetService("RunService").Heartbeat:Connect(function()
                 if not toggles[key] then return end
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    if plr ~= player and plr.Character then
-                        local dist = (hrp.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < 30 then
-                            killTarget(plr)
+                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                        local targetHrp = plr.Character.HumanoidRootPart
+                        -- Teleport player to you
+                        targetHrp.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 0))
+                        -- Stun them so they can't run
+                        local hum = plr.Character:FindFirstChild("Humanoid")
+                        if hum then
+                            hum.PlatformStand = true
+                            wait(0.1)
+                            hum.PlatformStand = false
                         end
                     end
                 end
             end)
             toggles[key .. "_conn"] = conn
-            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "On - Killing nearby", Duration = 2})
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Kill All", Text = "On - Teleporting all to you", Duration = 2})
         ]]
     }
 }
-
-hubData["Blade Ball"] = {
-    icon = "⚔️",
-    scripts = {
-        ["Auto Parry"] = [[
-            -- Toggle: Auto Parry for Blade Ball (iPad/mobile)
-            local toggles = getgenv().CelestialToggles or {}
-            local key = "BladeBall_AutoParry"
-            if toggles[key] then
-                toggles[key] = false
-                if toggles[key .. "_conn"] then
-                    toggles[key .. "_conn"]:Disconnect()
-                    toggles[key .. "_conn"] = nil
-                end
-                game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Auto Parry", Text = "Off", Duration = 1})
-                return
-            end
-            toggles[key] = true
-            getgenv().CelestialToggles = toggles
-
-            local player = game:GetService("Players").LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-            local userInput = game:GetService("UserInputService")
-
-            -- Function to simulate a screen tap at the parry button position
-            local function tapParry()
-                pcall(function()
-                    -- Method 1: Find the parry button on screen and tap it
-                    local parryButton = nil
-                    -- Search common parry button names
-                    local buttonNames = {"Parry", "Block", "Deflect", "Sword", "Guard"}
-                    for _, name in pairs(buttonNames) do
-                        local btn = player.PlayerGui:FindFirstChild(name, true)
-                        if btn and btn:IsA("ImageButton") or btn:IsA("TextButton") then
-                            parryButton = btn
-                            break
-                        end
-                    end
-                    
-                    if parryButton then
-                        -- Simulate a tap on the button
-                        local click = Instance.new("ClickDetector")
-                        click.Parent = parryButton
-                        click:Click()
-                        click:Destroy()
-                        -- Alternative: fire the button's MouseButton1Click event
-                        parryButton:FindFirstChild("MouseButton1Click") and parryButton.MouseButton1Click:Fire()
-                    end
-                    
-                    -- Method 2: If no button found, try firing the remote directly
-                    local remote = game:GetService("ReplicatedStorage"):FindFirstChild("ParryRemote") or 
-                                   game:GetService("ReplicatedStorage"):FindFirstChild("BlockRemote") or
-                                   game:GetService("ReplicatedStorage"):FindFirstChild("DeflectRemote") or
-                                   game:GetService("ReplicatedStorage"):FindFirstChild("SwordRemote")
-                    if remote then
-                        remote:FireServer()
-                    end
-                    
-                    -- Method 3: Send a touch event at the center of the screen (where parry button often is)
-                    local viewport = game:GetService("Workspace").CurrentCamera.ViewportSize
-                    local centerX = viewport.X / 2
-                    local centerY = viewport.Y / 2
-                    -- Simulate touch down and up
-                    userInput:TouchEnabled() and userInput:TouchInput:Fire(Enum.UserInputType.Touch, Vector2.new(centerX, centerY), 1)
-                    wait(0.02)
-                    userInput:TouchInput:Fire(Enum.UserInputType.TouchEnd, Vector2.new(centerX, centerY), 1)
-                end)
-            end
-
-            -- Detect incoming ball
-            local function getIncomingBall()
-                local hrp = character:FindFirstChild("HumanoidRootPart")
-                if not hrp then return nil end
-                local playerPos = hrp.Position
-                for _, obj in pairs(game:GetService("Workspace"):GetChildren()) do
-                    if obj:IsA("Part") and (obj.Name:lower():find("ball") or obj.Name:lower():find("blade") or obj.Name:lower():find("projectile") or obj.Name:lower():find("sword")) then
-                        local ballPos = obj.Position
-                        local dist = (ballPos - playerPos).Magnitude
-                        local velocity = obj.Velocity or Vector3.new(0, 0, 0)
-                        -- Check if moving towards player
-                        local toPlayer = (playerPos - ballPos).Unit
-                        if dist < 35 and velocity:Dot(toPlayer) > 0 then
-                            return obj
-                        end
-                    end
-                end
-                return nil
-            end
-
-            -- Auto parry loop
-            local conn
-            conn = game:GetService("RunService").Heartbeat:Connect(function()
-                if not toggles[key] then return end
-                local ball = getIncomingBall()
-                if ball then
-                    tapParry()
-                    wait(0.1) -- Slight delay to avoid over-spam
-                end
-            end)
-            toggles[key .. "_conn"] = conn
-
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Auto Parry",
-                Text = "On - Tapping parry for iPad",
-                Duration = 2
-            })
-        ]]
-    }
-}
-
 -- ============================================
 -- GUI BUILDER (same as before, but works with toggles)
 -- ============================================
